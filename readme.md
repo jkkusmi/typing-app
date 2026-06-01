@@ -4,7 +4,7 @@
 #### Autorstwa:
 * [Jakub Kuśmierek](https://www.github.com/jkkusmi/) 51798
 * [Bartosz Kurach](https://www.github.com/kapsiu/) 51787
-* Konrad Maciejczyk 51714
+* [Konrad Maciejczyk](https://www.github.com/konradmaciejczyk7-ops) 51714
 
 ---
 ### Założenia podstawowe:
