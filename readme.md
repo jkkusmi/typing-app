@@ -2,9 +2,9 @@
 ### Nowatorski projekt zespołowy - IAiSC 6sem Ćw2S
 ---
 #### Autorstwa:
-[Jakub Kuśmierek](https://www.github.com/jkkusmi/) 51798
-[Bartosz Kurach](https://www.github.com/kapsiu/) 51787
-Konrad Maciejczyk 51714
+* [Jakub Kuśmierek](https://www.github.com/jkkusmi/) 51798
+* [Bartosz Kurach](https://www.github.com/kapsiu/) 51787
+* Konrad Maciejczyk 51714
 
 ---
 ### Założenia podstawowe:
