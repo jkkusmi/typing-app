@@ -26,7 +26,7 @@
 ### Odpalenie Backendu
 
 -wejdz do folderu z backendem:
-cd serwer
+cd server
 
 -instalacja
 pip istall -r requirements.txt
