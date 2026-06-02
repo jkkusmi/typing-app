@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import enRaw from '../assets/words/en.txt?raw'
 import plRaw from '../assets/words/pl.txt?raw'
 import './game.css'
@@ -22,7 +22,10 @@ type GameResults = {
   totalChars: number
 }
 
-type WordBoundary = { start: number; end: number }
+type ParsedBuffer = {
+  completed: string[]
+  current: string
+}
 
 const LANGUAGE_LABELS: Record<string, string> = {
   en: 'English',
@@ -58,133 +61,115 @@ function pickRandomWords(pool: string[], count: number): string[] {
   return result
 }
 
-function wordsToTarget(words: string[]): string {
-  return words.join(' ')
+function parseBuffer(buffer: string): ParsedBuffer {
+  if (buffer === '') return { completed: [], current: '' }
+
+  if (buffer.endsWith(' ')) {
+    const parts = buffer.split(' ')
+    parts.pop()
+    return { completed: parts, current: '' }
+  }
+
+  const parts = buffer.split(' ')
+  const current = parts.pop() ?? ''
+  return { completed: parts, current }
 }
 
-function getWordBoundaries(target: string): WordBoundary[] {
-  const boundaries: WordBoundary[] = []
-  let start = 0
-  for (let i = 0; i < target.length; i += 1) {
-    if (target[i] === ' ') {
-      boundaries.push({ start, end: i })
-      start = i + 1
-    }
-  }
-  if (start < target.length) {
-    boundaries.push({ start, end: target.length })
-  }
-  return boundaries
+function bufferToSegments(buffer: string): string[] {
+  const { completed, current } = parseBuffer(buffer)
+  if (current.length > 0) return [...completed, current]
+  return completed
 }
 
-function isWordCompleted(
-  inputLength: number,
-  boundary: WordBoundary,
-  isLastWord: boolean,
+function getActiveWordForTarget(
+  buffer: string,
+  wordIndex: number,
+  activeTargetIndex: number,
+): string {
+  const segments = bufferToSegments(buffer)
+  const offset = wordIndex - activeTargetIndex
+  if (offset < 0) return ''
+  return segments[offset] ?? ''
+}
+
+function canCommitBuffer(
+  completed: string[],
+  activeTargetIndex: number,
+  targetWords: string[],
 ): boolean {
-  return isLastWord
-    ? inputLength >= boundary.end
-    : inputLength > boundary.end
+  if (completed.length === 0) return false
+
+  const lastCompleted = completed[completed.length - 1]
+  const lastTargetIndex = activeTargetIndex + completed.length - 1
+
+  // Last segment matches its slot (e.g. "prange tree " → "tree" matches target[1])
+  if (
+    lastTargetIndex < targetWords.length &&
+    lastCompleted === targetWords[lastTargetIndex]
+  ) {
+    return true
+  }
+
+  // Retries at the current target (e.g. "helol hello " → "hello" matches target[0])
+  return lastCompleted === targetWords[activeTargetIndex]
 }
 
-function wordHasErrors(
-  target: string,
-  input: string,
-  boundary: WordBoundary,
-): boolean {
-  const typedLength = Math.min(input.length, boundary.end)
-  for (let i = boundary.start; i < typedLength; i += 1) {
-    if (input[i] !== target[i]) return true
-  }
-  return false
-}
-
-function countCompletedWords(
-  input: string,
-  boundaries: WordBoundary[],
-): number {
-  let count = 0
-  for (let w = 0; w < boundaries.length; w += 1) {
-    const boundary = boundaries[w]
-    const isLast = w === boundaries.length - 1
-    if (
-      isWordCompleted(input.length, boundary, isLast) &&
-      (isLast || input[boundary.end] === ' ')
-    ) {
-      count += 1
-    } else {
-      break
-    }
-  }
-  return count
+function isWordCorrect(expected: string, typed: string): boolean {
+  return typed === expected
 }
 
 function getCharClass(
-  target: string,
-  input: string,
-  index: number,
-  boundaries: WordBoundary[],
+  expectedWord: string,
+  charIndex: number,
+  wordIndex: number,
+  activeTargetIndex: number,
+  typedWords: string[],
+  buffer: string,
 ): string {
-  let wordIdx = -1
-  let isSpaceChar = false
-
-  for (let w = 0; w < boundaries.length; w += 1) {
-    const boundary = boundaries[w]
-    if (index >= boundary.start && index < boundary.end) {
-      wordIdx = w
-      break
-    }
-    if (index === boundary.end && target[index] === ' ') {
-      wordIdx = w
-      isSpaceChar = true
-      break
-    }
-  }
-
-  if (wordIdx === -1) return 'game-char'
-
-  const boundary = boundaries[wordIdx]
-  const isLastWord = wordIdx === boundaries.length - 1
-  const completed = isWordCompleted(input.length, boundary, isLastWord)
-  const hasErrors = wordHasErrors(target, input, boundary)
-
-  if (completed && (isSpaceChar || index < boundary.end)) {
-    return hasErrors
-      ? 'game-char game-char--word-wrong'
-      : 'game-char game-char--correct'
-  }
-
-  if (isSpaceChar) {
-    if (index < input.length) {
-      return input[index] === target[index]
-        ? 'game-char game-char--correct'
-        : 'game-char game-char--incorrect'
-    }
-    return 'game-char'
-  }
-
-  if (index < input.length) {
-    return input[index] === target[index]
+  if (wordIndex < activeTargetIndex) {
+    const typed = typedWords[wordIndex] ?? ''
+    return isWordCorrect(expectedWord, typed)
       ? 'game-char game-char--correct'
-      : 'game-char game-char--incorrect'
+      : 'game-char game-char--word-wrong'
   }
 
-  return 'game-char'
+  const activeWord = getActiveWordForTarget(buffer, wordIndex, activeTargetIndex)
+  if (activeWord.length === 0) return 'game-char'
+
+  if (charIndex >= activeWord.length) return 'game-char'
+  return activeWord[charIndex] === expectedWord[charIndex]
+    ? 'game-char game-char--correct'
+    : 'game-char game-char--incorrect'
 }
 
 function computeResults(
-  target: string,
-  input: string,
+  targetWords: string[],
+  typedWords: string[],
+  buffer: string,
   elapsedSeconds: number,
+  includeBuffer: boolean,
 ): GameResults {
-  const totalChars = input.length
+  const uncommitted = includeBuffer ? bufferToSegments(buffer) : []
+  const allTyped = [...typedWords, ...uncommitted]
+
+  let totalChars = 0
   let correctChars = 0
-  for (let i = 0; i < input.length; i += 1) {
-    if (input[i] === target[i]) correctChars += 1
+
+  for (let i = 0; i < allTyped.length; i += 1) {
+    const typed = allTyped[i]
+    const expected = targetWords[i] ?? ''
+    totalChars += typed.length
+    for (let j = 0; j < typed.length; j += 1) {
+      if (j < expected.length && typed[j] === expected[j]) {
+        correctChars += 1
+      }
+    }
   }
+
   const accuracy = totalChars > 0 ? (correctChars / totalChars) * 100 : 0
   const wpm =
     elapsedSeconds > 0 ? correctChars / 5 / (elapsedSeconds / 60) : 0
+
   return { accuracy, wpm, elapsedSeconds, correctChars, totalChars }
 }
 
@@ -201,7 +186,9 @@ export default function Game({
   language = 'en',
 }: GameProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const inputValueRef = useRef('')
+  const typedWordsRef = useRef<string[]>([])
+  const bufferRef = useRef('')
+  const wordsRef = useRef<string[]>([])
   const finishRef = useRef(false)
   const startTimeRef = useRef<number | null>(null)
 
@@ -214,21 +201,25 @@ export default function Game({
       mode === 'words' ? wordCount : TIME_BUFFER_SIZE,
     ),
   )
-  const [input, setInput] = useState('')
+  const [typedWords, setTypedWords] = useState<string[]>([])
+  const [buffer, setBuffer] = useState('')
   const [timeLeft, setTimeLeft] = useState(durationSeconds)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [results, setResults] = useState<GameResults | null>(null)
 
-  const target = useMemo(() => wordsToTarget(words), [words])
-  const boundaries = useMemo(() => getWordBoundaries(target), [target])
+  wordsRef.current = words
+
+  const activeTargetIndex = typedWords.length
   const languageLabel = LANGUAGE_LABELS[language] ?? language
 
   const resetGame = useCallback(() => {
     finishRef.current = false
     startTimeRef.current = null
-    inputValueRef.current = ''
+    typedWordsRef.current = []
+    bufferRef.current = ''
     setPhase('idle')
-    setInput('')
+    setTypedWords([])
+    setBuffer('')
     setTimeLeft(durationSeconds)
     setElapsedSeconds(0)
     setResults(null)
@@ -251,13 +242,40 @@ export default function Game({
   }, [phase])
 
   const finishGame = useCallback(
-    (finalInput: string, elapsed: number) => {
+    (finalTypedWords: string[], finalBuffer: string, elapsed: number) => {
       if (finishRef.current) return
       finishRef.current = true
       setPhase('finished')
-      setResults(computeResults(target, finalInput, elapsed))
+      setResults(
+        computeResults(
+          wordsRef.current,
+          finalTypedWords,
+          finalBuffer,
+          elapsed,
+          finalBuffer.length > 0,
+        ),
+      )
     },
-    [target],
+    [],
+  )
+
+  const commitBufferWords = useCallback(
+    (completed: string[]) => {
+      const nextTypedWords = [...typedWordsRef.current, ...completed]
+      typedWordsRef.current = nextTypedWords
+      setTypedWords(nextTypedWords)
+
+      bufferRef.current = ''
+      setBuffer('')
+
+      if (mode === 'words' && nextTypedWords.length >= wordCount) {
+        const elapsed = startTimeRef.current
+          ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+          : elapsedSeconds
+        finishGame(nextTypedWords, '', elapsed)
+      }
+    },
+    [mode, wordCount, elapsedSeconds, finishGame],
   )
 
   useEffect(() => {
@@ -267,7 +285,11 @@ export default function Game({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           window.clearInterval(interval)
-          finishGame(inputValueRef.current, durationSeconds)
+          finishGame(
+            typedWordsRef.current,
+            bufferRef.current,
+            durationSeconds,
+          )
           return 0
         }
         return prev - 1
@@ -291,26 +313,15 @@ export default function Game({
   }, [phase])
 
   useEffect(() => {
-    if (phase !== 'playing' || mode !== 'words') return
-    if (input.length >= target.length && input === target) {
-      const elapsed = startTimeRef.current
-        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-        : elapsedSeconds
-      finishGame(input, elapsed)
-    }
-  }, [input, target, phase, mode, elapsedSeconds, finishGame])
-
-  useEffect(() => {
     if (phase !== 'playing' || mode !== 'time') return
-    const typedWords = input.trim() === '' ? 0 : input.trim().split(/\s+/).length
-    const remainingWords = words.length - typedWords
+    const remainingWords = words.length - typedWords.length
     if (remainingWords <= TIME_REFILL_THRESHOLD && wordPool) {
       setWords((prev) => [
         ...prev,
         ...pickRandomWords(wordPool, TIME_BUFFER_SIZE),
       ])
     }
-  }, [input, words.length, phase, mode, wordPool])
+  }, [typedWords.length, words.length, phase, mode, wordPool])
 
   const handleInputChange = (value: string) => {
     if (phase === 'finished') return
@@ -320,8 +331,23 @@ export default function Game({
       setPhase('playing')
     }
 
-    inputValueRef.current = value
-    setInput(value)
+    bufferRef.current = value
+    setBuffer(value)
+
+    if (!value.endsWith(' ')) return
+
+    const { completed } = parseBuffer(value)
+    if (completed.length === 0) return
+
+    if (
+      canCommitBuffer(
+        completed,
+        typedWordsRef.current.length,
+        wordsRef.current,
+      )
+    ) {
+      commitBufferWords(completed)
+    }
   }
 
   if (!wordPool || wordPool.length === 0) {
@@ -372,13 +398,6 @@ export default function Game({
     )
   }
 
-  const completedWords =
-    mode === 'words'
-      ? countCompletedWords(input, boundaries)
-      : input.trim() === ''
-        ? 0
-        : input.trim().split(/\s+/).length
-
   return (
     <div className="game">
       <div className="game-header">
@@ -397,7 +416,7 @@ export default function Game({
           <div className="game-stat">
             <span>Words</span>
             <span className="game-stat-value">
-              {completedWords} / {wordCount}
+              {typedWords.length} / {wordCount}
             </span>
           </div>
         )}
@@ -412,12 +431,24 @@ export default function Game({
       )}
 
       <div className="game-words" aria-hidden="true">
-        {target.split('').map((char, index) => (
-          <span
-            key={`${index}-${char}`}
-            className={getCharClass(target, input, index, boundaries)}
-          >
-            {char}
+        {words.map((word, wIdx) => (
+          <span key={`${wIdx}-${word}`}>
+            {word.split('').map((char, cIdx) => (
+              <span
+                key={cIdx}
+                className={getCharClass(
+                  word,
+                  cIdx,
+                  wIdx,
+                  activeTargetIndex,
+                  typedWords,
+                  buffer,
+                )}
+              >
+                {char}
+              </span>
+            ))}
+            {wIdx < words.length - 1 && ' '}
           </span>
         ))}
       </div>
@@ -426,7 +457,7 @@ export default function Game({
         ref={inputRef}
         type="text"
         className="game-input"
-        value={input}
+        value={buffer}
         onChange={(e) => handleInputChange(e.target.value)}
         autoComplete="off"
         autoCorrect="off"
