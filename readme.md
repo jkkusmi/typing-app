@@ -15,3 +15,14 @@
 ### Założenia dodatkowe:
 - Stanowa (backend) tabela wyników
 - Graficzne podsumowanie sesji użytkownika
+
+### Odpalenie Backendu
+
+-wejdz do folderu z backendem:
+cd server
+
+-instalacja
+pip istall -r requirements.txt
+
+-odpalanie Bachendu
+python -m uvicorn app.main:app --reload
