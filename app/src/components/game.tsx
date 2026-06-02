@@ -32,7 +32,7 @@ const LANGUAGE_LABELS: Record<string, string> = {
   pl: 'Polish',
 }
 
-const TIME_BUFFER_SIZE = 4
+const TIME_BUFFER_SIZE = 30
 const TIME_REFILL_THRESHOLD = 1
 
 function parseWordList(raw: string): string[] {
