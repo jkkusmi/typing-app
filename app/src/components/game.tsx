@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import enRaw from '../assets/words/en.txt?raw'
-import plRaw from '../assets/words/pl.txt?raw'
+//import plRaw from '../assets/words/pl.txt?raw'
 import './game.css'
 
 type GameMode = 'time' | 'words'
@@ -44,7 +44,7 @@ function parseWordList(raw: string): string[] {
 
 const WORD_LISTS: Record<string, string[]> = {
   en: parseWordList(enRaw),
-  pl: parseWordList(plRaw),
+  //pl: parseWordList(plRaw),
 }
 
 function pickRandomWords(pool: string[], count: number): string[] {
