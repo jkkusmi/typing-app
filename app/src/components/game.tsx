@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import enRaw from '../assets/words/en.txt?raw'
-//import plRaw from '../assets/words/pl.txt?raw'
+import plRaw from '../assets/words/pl.txt?raw'
 import './game.css'
 
 type GameMode = 'time' | 'words'
@@ -44,7 +44,7 @@ function parseWordList(raw: string): string[] {
 
 const WORD_LISTS: Record<string, string[]> = {
   en: parseWordList(enRaw),
-  //pl: parseWordList(plRaw),
+  pl: parseWordList(plRaw),
 }
 
 function pickRandomWords(pool: string[], count: number): string[] {
@@ -112,6 +112,29 @@ function canCommitBuffer(
 
   // Retries at the current target (e.g. "helol hello " → "hello" matches target[0])
   return lastCompleted === targetWords[activeTargetIndex]
+}
+
+function getCursorPosition(
+  buffer: string,
+  activeTargetIndex: number,
+): { wordIndex: number; charIndex: number } {
+  const { completed, current } = parseBuffer(buffer)
+
+  if (completed.length === 0 && current.length === 0) {
+    return { wordIndex: activeTargetIndex, charIndex: 0 }
+  }
+
+  if (current.length > 0) {
+    return {
+      wordIndex: activeTargetIndex + completed.length,
+      charIndex: current.length,
+    }
+  }
+
+  return {
+    wordIndex: activeTargetIndex + completed.length,
+    charIndex: 0,
+  }
 }
 
 function isWordCorrect(expected: string, typed: string): boolean {
@@ -211,6 +234,7 @@ export default function Game({
 
   const activeTargetIndex = typedWords.length
   const languageLabel = LANGUAGE_LABELS[language] ?? language
+  const cursorPosition = getCursorPosition(buffer, activeTargetIndex)
 
   const resetGame = useCallback(() => {
     finishRef.current = false
@@ -350,6 +374,10 @@ export default function Game({
     }
   }
 
+  const focusInput = () => {
+    inputRef.current?.focus()
+  }
+
   if (!wordPool || wordPool.length === 0) {
     return (
       <div className="game">
@@ -399,7 +427,13 @@ export default function Game({
   }
 
   return (
-    <div className="game">
+    <div
+      className="game game--play"
+      onMouseDown={(e) => {
+        e.preventDefault()
+        focusInput()
+      }}
+    >
       <div className="game-header">
         {mode === 'time' ? (
           <div className="game-stat">
@@ -430,24 +464,33 @@ export default function Game({
         <p className="game-prompt">Start typing to begin…</p>
       )}
 
-      <div className="game-words" aria-hidden="true">
+      <div className="game-words">
         {words.map((word, wIdx) => (
           <span key={`${wIdx}-${word}`}>
             {word.split('').map((char, cIdx) => (
-              <span
-                key={cIdx}
-                className={getCharClass(
-                  word,
-                  cIdx,
-                  wIdx,
-                  activeTargetIndex,
-                  typedWords,
-                  buffer,
-                )}
-              >
-                {char}
+              <span key={cIdx}>
+                {cursorPosition.wordIndex === wIdx &&
+                  cursorPosition.charIndex === cIdx && (
+                    <span className="game-cursor" aria-hidden="true" />
+                  )}
+                <span
+                  className={getCharClass(
+                    word,
+                    cIdx,
+                    wIdx,
+                    activeTargetIndex,
+                    typedWords,
+                    buffer,
+                  )}
+                >
+                  {char}
+                </span>
               </span>
             ))}
+            {cursorPosition.wordIndex === wIdx &&
+              cursorPosition.charIndex === word.length && (
+                <span className="game-cursor" aria-hidden="true" />
+              )}
             {wIdx < words.length - 1 && ' '}
           </span>
         ))}

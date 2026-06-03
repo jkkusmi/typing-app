@@ -8,6 +8,15 @@
   margin: 0 auto;
   padding: 48px 24px;
   box-sizing: border-box;
+<<<<<<< HEAD
+=======
+  position: relative;
+  outline: none;
+}
+
+.game--play {
+  cursor: text;
+>>>>>>> feature/game-logic
 }
 
 .game-header {
@@ -69,6 +78,7 @@
   color: #ef4444;
 }
 
+<<<<<<< HEAD
 .game-input {
   width: 100%;
   font-family: var(--mono);
@@ -90,6 +100,35 @@
 .game-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+=======
+.game-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: game-cursor-blink 1s step-end infinite;
+}
+
+@keyframes game-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.game-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+>>>>>>> feature/game-logic
 }
 
 .game-results {
