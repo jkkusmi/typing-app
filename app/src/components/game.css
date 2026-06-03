@@ -8,6 +8,12 @@
   margin: 0 auto;
   padding: 48px 24px;
   box-sizing: border-box;
+  position: relative;
+  outline: none;
+}
+
+.game--play {
+  cursor: text;
 }
 
 .game-header {
@@ -69,27 +75,33 @@
   color: #ef4444;
 }
 
+.game-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: game-cursor-blink 1s step-end infinite;
+}
+
+@keyframes game-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .game-input {
-  width: 100%;
-  font-family: var(--mono);
-  font-size: 18px;
-  padding: 12px 16px;
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  background: var(--code-bg);
-  color: var(--text-h);
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.game-input:focus {
-  border-color: var(--accent-border);
-}
-
-.game-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .game-results {
