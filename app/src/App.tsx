@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import BurgerMenu from './components/burgermenu'
+import BurgerMenu from './components/BurgerMenu'
 import Game from './components/game'
-import Leaderboard from './components/leaderboard'
+import Leaderboard from './components/Leaderboard'
 import Gamebar, { loadGameSettings, type GameSettings } from './components/gamebar'
 
 type View = 'game' | 'leaderboard'

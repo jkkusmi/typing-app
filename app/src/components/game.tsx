@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import enRaw from '../assets/words/en.txt?raw'
 import plRaw from '../assets/words/pl.txt?raw'
+import { recordScore } from '../scores/localScores'
 import './game.css'
 
 type GameMode = 'time' | 'words'
@@ -270,17 +271,23 @@ export default function Game({
       if (finishRef.current) return
       finishRef.current = true
       setPhase('finished')
-      setResults(
-        computeResults(
-          wordsRef.current,
-          finalTypedWords,
-          finalBuffer,
-          elapsed,
-          finalBuffer.length > 0,
-        ),
+      const gameResults = computeResults(
+        wordsRef.current,
+        finalTypedWords,
+        finalBuffer,
+        elapsed,
+        finalBuffer.length > 0,
       )
+      setResults(gameResults)
+      void recordScore({
+        wpm: gameResults.wpm,
+        score: gameResults.accuracy,
+        game_type: mode,
+        text_type: 'words',
+        language,
+      })
     },
-    [],
+    [mode, language],
   )
 
   const commitBufferWords = useCallback(

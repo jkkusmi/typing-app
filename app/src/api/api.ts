@@ -22,6 +22,26 @@ export interface TokenPayload {
   exp: number
 }
 
+export interface ScoreCreateRequest {
+  score: number
+  game_type: string
+  text_type: string
+  language: string
+  wpm: number
+}
+
+export interface ScoreResponseRaw {
+  id: number
+  username?: string
+  wpm: number
+  score: number
+  game_type: string
+  text_type: string
+  language: string
+  user_id?: number
+  achieved_at: string
+}
+
 export interface ScoreEntry {
   id: number
   username: string
@@ -62,6 +82,24 @@ export function isTokenAlive(token: string): boolean {
   return payload !== null && payload.exp * 1000 > Date.now()
 }
 
+export function isAuthenticated(): boolean {
+  const token = loadToken()
+  return token !== null && isTokenAlive(token)
+}
+
+function mapScoreResponse(raw: ScoreResponseRaw): ScoreEntry {
+  return {
+    id: raw.id,
+    username: raw.username ?? (raw.user_id != null ? `User ${raw.user_id}` : 'Unknown'),
+    wpm: raw.wpm,
+    score: raw.score,
+    game_type: raw.game_type,
+    text_type: raw.text_type,
+    language: raw.language,
+    achieved_at: raw.achieved_at,
+  }
+}
+
 async function apiFetch<T>(path: string, init: RequestInit = {}, withAuth = false): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -99,10 +137,11 @@ export async function apiLogin(data: LoginRequest): Promise<AuthToken> {
   return apiFetch('/auth/login', { method: 'POST', body: JSON.stringify(data) })
 }
 
-export async function apiGetTopScores(limit = 50): Promise<ScoreEntry[]> {
-  try {
-    return await apiFetch<ScoreEntry[]>(`/scores/top?limit=${limit}`)
-  } catch {
-    return []
-  }
+export async function apiSubmitScore(data: ScoreCreateRequest): Promise<void> {
+  await apiFetch('/scores/', { method: 'POST', body: JSON.stringify(data) }, true)
+}
+
+export async function apiGetGlobalScores(): Promise<ScoreEntry[]> {
+  const raw = await apiFetch<ScoreResponseRaw[]>('/scores/')
+  return raw.map(mapScoreResponse)
 }
