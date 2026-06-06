@@ -94,18 +94,11 @@
 
 .leaderboard-table th {
   padding: 0 12px 10px;
-  text-align: left;
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text);
   font-weight: 400;
-}
-
-.leaderboard-table th.col-wpm,
-.leaderboard-table th.col-acc,
-.leaderboard-table th.col-date {
-  text-align: right;
 }
 
 .leaderboard-table th.col-rank {
@@ -127,7 +120,7 @@
 }
 
 .leaderboard-table td {
-  padding: 12px 12px;
+  padding: 12px;
   color: var(--text-h);
   vertical-align: middle;
 }
@@ -138,20 +131,13 @@
   font-size: 13px;
 }
 
-.leaderboard-table td.col-wpm {
-  text-align: right;
-  font-weight: 600;
-  color: var(--accent);
-  font-size: 15px;
-}
-
-.leaderboard-table td.col-acc,
-.leaderboard-table td.col-date {
-  text-align: right;
+.leaderboard-table td.col-right {
   color: var(--text);
 }
 
-.lb-rank-medal {
+.leaderboard-table td.col-wpm {
+  font-weight: 600;
+  color: var(--accent);
   font-size: 15px;
 }
 
@@ -159,21 +145,35 @@
   font-weight: 500;
 }
 
-.lb-skeleton td {
-  padding-top: 14px;
-  padding-bottom: 14px;
+.lb-divider-row td {
+  padding: 4px 0;
+  border-bottom: none !important;
 }
 
-.lb-skel-bar {
-  height: 10px;
-  border-radius: 4px;
+.lb-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lb-divider::before,
+.lb-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
   background: var(--border);
-  display: inline-block;
-  vertical-align: middle;
+}
+
+.lb-divider-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0.45;
+  white-space: nowrap;
 }
 
 .leaderboard-state {
-  width: 100%;
   padding: 40px 0;
   text-align: center;
   font-family: var(--mono);

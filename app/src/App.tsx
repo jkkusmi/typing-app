@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import BurgerMenu from './components/BurgerMenu'
+import BurgerMenu from './components/burgermenu'
 import Game from './components/game'
-import Leaderboard from './components/Leaderboard'
+import Leaderboard from './components/leaderboard'
 import Gamebar, { loadGameSettings, type GameSettings } from './components/gamebar'
 
 type View = 'game' | 'leaderboard'
@@ -12,15 +12,15 @@ export default function App() {
 
   return (
     <main>
-      <BurgerMenu
-        activeView={view}
-        onNavigate={(v) => setView(v as View)}
+      <BurgerMenu 
+      activeView={view} 
+      onNavigate={(v) => setView(v as View)} 
       />
       {view === 'game' && (
         <>
-          <Gamebar
-            settings={gameSettings}
-            onSettingsChange={setGameSettings}
+          <Gamebar 
+          settings={gameSettings} 
+          onSettingsChange={setGameSettings} 
           />
           <Game
             key={`${gameSettings.mode}-${gameSettings.durationSeconds}-${gameSettings.wordCount}-${gameSettings.language}`}

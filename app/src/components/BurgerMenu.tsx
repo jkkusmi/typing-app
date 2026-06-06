@@ -1,148 +1,181 @@
 import { useState } from 'react'
-import './burger-menu.css'
+import { useAuth, type LoginRequest, type RegisterRequest } from '../auth/auth'
+import './burgermenu.css'
 
 type ActiveView = 'game' | 'leaderboard'
 type AuthTab = 'login' | 'register'
 
-type Props = {
+interface Props {
   activeView: ActiveView
   onNavigate: (view: ActiveView) => void
 }
 
-function LoginForm({ onSwitch }: { onSwitch: () => void }) {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+type Status = { type: 'success' | 'error'; msg: string }
 
-  function handleSubmit() {
+function Field({
+  id,
+  label,
+  type = 'text',
+  placeholder,
+  autoComplete,
+  value,
+  onChange,
+  onKeyDown,
+}: {
+  id: string
+  label: string
+  type?: string
+  placeholder: string
+  autoComplete: string
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <div className="auth-field">
+      <label className="auth-label" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        className="auth-input"
+        type={type}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+      />
+    </div>
+  )
+}
+
+function StatusMessage({ status }: { status: Status }) {
+  return (
+    <p className={`auth-message auth-message--${status.type}`} role="status">
+      {status.msg}
+    </p>
+  )
+}
+
+function LoginForm({ onSwitch }: { onSwitch: () => void }) {
+  const { login, loading } = useAuth()
+  const [form, setForm] = useState<LoginRequest>({ email: '', password: '' })
+  const [status, setStatus] = useState<Status | null>(null)
+
+  function set(key: keyof LoginRequest) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  }
+
+  async function handleSubmit() {
     if (!form.email || !form.password) {
-      setStatus({ type: 'error', msg: 'Please fill in all fields' })
+      setStatus({ type: 'error', msg: 'Please fill in all fields.' })
       return
     }
-    // Demo mode: no API call
-    setStatus({ type: 'success', msg: 'Signed in! (demo mode)' })
+    setStatus(null)
+    try {
+      await login(form)
+      setStatus({ type: 'success', msg: 'Signed in!' })
+    } catch (e: any) {
+      setStatus({ type: 'error', msg: e?.message ?? 'Login failed.' })
+    }
   }
 
   return (
     <div className="auth-form">
-      {status && (
-        <p className={`auth-message auth-message--${status.type}`}>{status.msg}</p>
-      )}
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="login-email">Email</label>
-        <input
-          id="login-email" className="auth-input" type="email"
-          placeholder="you@example.com" autoComplete="email"
-          value={form.email}
-          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-        />
-      </div>
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="login-password">Password</label>
-        <input
-          id="login-password" className="auth-input" type="password"
-          placeholder="••••••••" autoComplete="current-password"
-          value={form.password}
-          onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
-        />
-      </div>
-      <button type="button" className="auth-submit" onClick={handleSubmit}>
-        Sign in
+      {status && <StatusMessage status={status} />}
+      <Field id="login-email" label="Email" type="email"
+        placeholder="you@example.com" autoComplete="email"
+        value={form.email} onChange={set('email')} />
+      <Field id="login-password" label="Password" type="password"
+        placeholder="••••••••" autoComplete="current-password"
+        value={form.password} onChange={set('password')}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }} />
+      <button type="button" className="auth-submit" onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Signing in…' : 'Sign in'}
       </button>
       <p className="auth-footer">
         No account?{' '}
-        <button type="button" className="auth-footer-link" onClick={onSwitch}>
-          Create one
-        </button>
+        <button type="button" className="auth-footer-link" onClick={onSwitch}>Create one</button>
       </p>
     </div>
   )
 }
 
 function RegisterForm({ onSwitch }: { onSwitch: () => void }) {
-  const [form, setForm] = useState({
+  const { register, loading } = useAuth()
+  const [form, setForm] = useState<RegisterRequest & { confirm: string }>({
     username: '', first_name: '', last_name: '', email: '', password: '', confirm: '',
   })
-  const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [status, setStatus] = useState<Status | null>(null)
 
-  function field(key: string) {
-    return (e: React.ChangeEvent<HTMLInputElement>) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }))
+  function set(key: string) {
+    return (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }))
   }
 
-  function handleSubmit() {
-    if (!form.username || !form.first_name || !form.last_name || !form.email || !form.password) {
-      setStatus({ type: 'error', msg: 'Please fill in all fields' })
+  async function handleSubmit() {
+    const { confirm, ...payload } = form
+    if (Object.values(payload).some((v) => !v)) {
+      setStatus({ type: 'error', msg: 'Please fill in all fields.' })
       return
     }
-    if (form.password !== form.confirm) {
-      setStatus({ type: 'error', msg: 'Passwords do not match' })
+    if (form.password !== confirm) {
+      setStatus({ type: 'error', msg: 'Passwords do not match.' })
       return
     }
-    // Demo mode: no API call
-    setStatus({ type: 'success', msg: 'Account created! (demo mode)' })
+    setStatus(null)
+    try {
+      await register(payload)
+      setStatus({ type: 'success', msg: 'Account created! You can now sign in.' })
+    } catch (e: any) {
+      setStatus({ type: 'error', msg: e?.message ?? 'Registration failed.' })
+    }
   }
 
   return (
     <div className="auth-form">
-      {status && (
-        <p className={`auth-message auth-message--${status.type}`}>{status.msg}</p>
-      )}
+      {status && <StatusMessage status={status} />}
       <div className="auth-row">
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="reg-first">First name</label>
-          <input id="reg-first" className="auth-input" type="text"
-            placeholder="Ada" autoComplete="given-name"
-            value={form.first_name} onChange={field('first_name')} />
-        </div>
-        <div className="auth-field">
-          <label className="auth-label" htmlFor="reg-last">Last name</label>
-          <input id="reg-last" className="auth-input" type="text"
-            placeholder="Lovelace" autoComplete="family-name"
-            value={form.last_name} onChange={field('last_name')} />
-        </div>
+        <Field id="reg-first" label="First name" placeholder="Charles"
+          autoComplete="given-name" value={form.first_name} onChange={set('first_name')} />
+        <Field id="reg-last" label="Last name" placeholder="Leclerc"
+          autoComplete="family-name" value={form.last_name} onChange={set('last_name')} />
       </div>
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="reg-username">Username</label>
-        <input id="reg-username" className="auth-input" type="text"
-          placeholder="speedtyper" autoComplete="username"
-          value={form.username} onChange={field('username')} />
-      </div>
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="reg-email">Email</label>
-        <input id="reg-email" className="auth-input" type="email"
-          placeholder="you@example.com" autoComplete="email"
-          value={form.email} onChange={field('email')} />
-      </div>
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="reg-password">Password</label>
-        <input id="reg-password" className="auth-input" type="password"
-          placeholder="••••••••" autoComplete="new-password"
-          value={form.password} onChange={field('password')} />
-      </div>
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="reg-confirm">Confirm password</label>
-        <input id="reg-confirm" className="auth-input" type="password"
-          placeholder="••••••••" autoComplete="new-password"
-          value={form.confirm} onChange={field('confirm')}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }} />
-      </div>
-      <button type="button" className="auth-submit" onClick={handleSubmit}>
-        Create account
+      <Field id="reg-username" label="Username" placeholder="klawiatura"
+        autoComplete="username" value={form.username} onChange={set('username')} />
+      <Field id="reg-email" label="Email" type="email" placeholder="you@example.com"
+        autoComplete="email" value={form.email} onChange={set('email')} />
+      <Field id="reg-password" label="Password" type="password" placeholder="••••••••"
+        autoComplete="new-password" value={form.password} onChange={set('password')} />
+      <Field id="reg-confirm" label="Confirm password" type="password" placeholder="••••••••"
+        autoComplete="new-password" value={form.confirm} onChange={set('confirm')}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }} />
+      <button type="button" className="auth-submit" onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Creating…' : 'Create account'}
       </button>
       <p className="auth-footer">
         Already have one?{' '}
-        <button type="button" className="auth-footer-link" onClick={onSwitch}>
-          Sign in
-        </button>
+        <button type="button" className="auth-footer-link" onClick={onSwitch}>Sign in</button>
       </p>
     </div>
   )
 }
 
 function AuthSection() {
+  const { user, logout } = useAuth()
   const [expanded, setExpanded] = useState(false)
   const [tab, setTab] = useState<AuthTab>('login')
+
+  if (user) {
+    return (
+      <li className="burger-nav-item">
+        <div className="burger-logged-in">
+          <span className="burger-logged-in-name">{user.username}</span>
+          <button type="button" className="burger-logout-btn" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </li>
+    )
+  }
 
   return (
     <li className="burger-nav-item">
@@ -156,7 +189,6 @@ function AuthSection() {
         <span>Login / Register</span>
         <span className="nav-chevron" data-open={expanded} aria-hidden="true">▾</span>
       </button>
-
       <div className="burger-sub-panel" data-open={expanded} aria-hidden={!expanded}>
         <div className="burger-sub-body">
           <div className="auth-tabs" role="tablist" aria-label="Auth options">
@@ -190,15 +222,13 @@ export default function BurgerMenu({ activeView, onNavigate }: Props) {
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="burger-overlay"
-        data-open={open}
-        aria-hidden="true"
-        onClick={() => setOpen(false)}
+      <div 
+      className="burger-overlay" 
+      data-open={open} 
+      aria-hidden="true" 
+      onClick={() => setOpen(false)} 
       />
 
-      {/* Floating hamburger — hidden while drawer is open to prevent overlap */}
       <div className="burger-toggle-wrap" data-hidden={open}>
         <button
           type="button"
@@ -214,7 +244,6 @@ export default function BurgerMenu({ activeView, onNavigate }: Props) {
         </button>
       </div>
 
-      {/* Drawer */}
       <div
         id="burger-drawer"
         className="burger-drawer"
@@ -223,14 +252,13 @@ export default function BurgerMenu({ activeView, onNavigate }: Props) {
         aria-modal="true"
         aria-label="Navigation menu"
       >
-        {/* Header */}
         <div className="burger-drawer-header">
           <span className="burger-drawer-title">Menu</span>
-          <button
-            type="button"
-            className="drawer-close"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
+          <button 
+          type="button" 
+          className="drawer-close" 
+          aria-label="Close menu" 
+          onClick={() => setOpen(false)}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -239,31 +267,27 @@ export default function BurgerMenu({ activeView, onNavigate }: Props) {
         </div>
 
         <ul className="burger-nav-list" role="list">
-
           <AuthSection />
-
           <li className="burger-nav-item">
-            <button
-              type="button"
-              className="burger-nav-link"
-              data-active={activeView === 'game'}
-              onClick={() => navigate('game')}
+            <button 
+            type="button" 
+            className="burger-nav-btn" 
+            data-active={activeView === 'game'} 
+            onClick={() => navigate('game')}
             >
               Game
             </button>
           </li>
-
           <li className="burger-nav-item">
-            <button
-              type="button"
-              className="burger-nav-link"
-              data-active={activeView === 'leaderboard'}
-              onClick={() => navigate('leaderboard')}
+            <button 
+            type="button" 
+            className="burger-nav-btn" 
+            data-active={activeView === 'leaderboard'} 
+            onClick={() => navigate('leaderboard')}
             >
               Leaderboard
             </button>
           </li>
-
         </ul>
       </div>
     </>
