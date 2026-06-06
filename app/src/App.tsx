@@ -12,15 +12,15 @@ export default function App() {
 
   return (
     <main>
-      <BurgerMenu
-        activeView={view}
-        onNavigate={(v) => setView(v as View)}
+      <BurgerMenu 
+      activeView={view} 
+      onNavigate={(v) => setView(v as View)} 
       />
       {view === 'game' && (
         <>
-          <Gamebar
-            settings={gameSettings}
-            onSettingsChange={setGameSettings}
+          <Gamebar 
+          settings={gameSettings} 
+          onSettingsChange={setGameSettings} 
           />
           <Game
             key={`${gameSettings.mode}-${gameSettings.durationSeconds}-${gameSettings.wordCount}-${gameSettings.language}`}
