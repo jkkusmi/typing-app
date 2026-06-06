@@ -1,5 +1,7 @@
 import {
+  apiSubmitScore,
   decodeToken,
+  isAuthenticated,
   isTokenAlive,
   loadToken,
   type ScoreEntry,
@@ -47,6 +49,20 @@ export function saveLocalScore(input: SaveLocalScoreInput): ScoreEntry {
   scores.unshift(entry)
   localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(scores))
   window.dispatchEvent(new CustomEvent('local-scores-updated'))
+
+  return entry
+}
+
+export async function recordScore(input: SaveLocalScoreInput): Promise<ScoreEntry> {
+  const entry = saveLocalScore(input)
+
+  if (isAuthenticated()) {
+    try {
+      await apiSubmitScore(input)
+    } catch {
+      // Local score is already saved; server sync failure should not block the game.
+    }
+  }
 
   return entry
 }

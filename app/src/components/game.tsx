@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import enRaw from '../assets/words/en.txt?raw'
 import plRaw from '../assets/words/pl.txt?raw'
-import { saveLocalScore } from '../scores/localScores'
+import { recordScore } from '../scores/localScores'
 import './game.css'
 
 type GameMode = 'time' | 'words'
@@ -279,7 +279,7 @@ export default function Game({
         finalBuffer.length > 0,
       )
       setResults(gameResults)
-      saveLocalScore({
+      void recordScore({
         wpm: gameResults.wpm,
         score: gameResults.accuracy,
         game_type: mode,

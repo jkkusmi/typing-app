@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { apiGetTopScores, type ScoreEntry } from '../api/api'
+import { apiGetGlobalScores, type ScoreEntry } from '../api/api'
 import { loadLocalScores } from '../scores/localScores'
 import './leaderboard.css'
 
@@ -22,6 +22,7 @@ function formatDate(iso: string): string {
 export default function Leaderboard() {
   const [entries, setEntries] = useState<ScoreEntry[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [modeFilter, setModeFilter] = useState<FilterMode>('all')
   const [langFilter, setLangFilter] = useState<FilterLang>('all')
   const [leaderboardFilter, setLeaderboardFilter] =
@@ -29,14 +30,21 @@ export default function Leaderboard() {
 
   const loadScores = useCallback(async () => {
     if (leaderboardFilter === 'local') {
+      setError(null)
       setEntries(loadLocalScores())
       return
     }
 
     setLoading(true)
+    setError(null)
     try {
-      const scores = await apiGetTopScores()
+      const scores = await apiGetGlobalScores()
       setEntries(scores)
+    } catch (err) {
+      setEntries([])
+      setError(
+        err instanceof Error ? err.message : 'Failed to load global scores',
+      )
     } finally {
       setLoading(false)
     }
@@ -145,11 +153,12 @@ export default function Leaderboard() {
           {!loading && filtered.length === 0 && (
             <tr>
               <td colSpan={5} className="leaderboard-state">
-                {entries.length === 0
-                  ? leaderboardFilter === 'local'
-                    ? 'No local scores yet, play a game to get started!'
-                    : 'No global scores yet'
-                  : 'No results match these filters'}
+                {error ??
+                  (entries.length === 0
+                    ? leaderboardFilter === 'local'
+                      ? 'No local scores yet, play a game to get started!'
+                      : 'No global scores yet'
+                    : 'No results match these filters')}
               </td>
             </tr>
           )}

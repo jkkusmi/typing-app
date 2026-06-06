@@ -52,11 +52,24 @@ def get_scores(db: Session = Depends(get_db)):
 
     scores = (
         db.query(Score)
-        .order_by(Score.score.desc())
+        .order_by(Score.wpm.desc())
         .all()
     )
 
-    return scores
+    return [
+        {
+            "id": s.id,
+            "score": s.score,
+            "game_type": s.game_type,
+            "text_type": s.text_type,
+            "language": s.language,
+            "wpm": s.wpm,
+            "user_id": s.user_id,
+            "achieved_at": s.achieved_at,
+            "username": s.user.username if s.user else "Unknown",
+        }
+        for s in scores
+    ]
 
 
 
