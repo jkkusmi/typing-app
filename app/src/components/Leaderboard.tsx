@@ -1,83 +1,11 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { apiGetTopScores, type ScoreEntry } from '../api/api'
+import { loadLocalScores } from '../scores/localScores'
 import './leaderboard.css'
 
 type FilterMode = 'all' | 'time' | 'words'
 type FilterLang = 'all' | 'en' | 'pl'
 type FilterLeaderboard = 'global' | 'local'
-
-interface ScoreEntry {
-  id: number
-  username: string
-  wpm: number
-  score: number
-  game_type: string
-  text_type: string
-  language: string
-  achieved_at: string
-}
-
-const MOCK_SCORES: ScoreEntry[] = [
-  {
-    id: 1,
-    username: 'speedmaster',
-    wpm: 67,
-    score: 98.5,
-    game_type: 'time',
-    text_type: 'sentences',
-    language: 'en',
-    achieved_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 2,
-    username: 'quickfingers',
-    wpm: 138,
-    score: 97.2,
-    game_type: 'time',
-    text_type: 'sentences',
-    language: 'en',
-    achieved_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 3,
-    username: 'typeracer',
-    wpm: 125,
-    score: 96.1,
-    game_type: 'words',
-    text_type: 'words',
-    language: 'en',
-    achieved_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 4,
-    username: 'klawiatura',
-    wpm: 118,
-    score: 99.0,
-    game_type: 'time',
-    text_type: 'sentences',
-    language: 'pl',
-    achieved_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 5,
-    username: 'fastpaw',
-    wpm: 112,
-    score: 94.8,
-    game_type: 'words',
-    text_type: 'words',
-    language: 'en',
-    achieved_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 6,
-    username: 'polskityper',
-    wpm: 105,
-    score: 97.5,
-    game_type: 'time',
-    text_type: 'sentences',
-    language: 'pl',
-    achieved_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
 
 function formatDate(iso: string): string {
   try {
@@ -92,21 +20,51 @@ function formatDate(iso: string): string {
 }
 
 export default function Leaderboard() {
-  const [entries, setEntries] = useState<ScoreEntry[]>(MOCK_SCORES)
+  const [entries, setEntries] = useState<ScoreEntry[]>([])
+  const [loading, setLoading] = useState(false)
   const [modeFilter, setModeFilter] = useState<FilterMode>('all')
   const [langFilter, setLangFilter] = useState<FilterLang>('all')
-  const [leaderboardFilter, setLeaderboardFilter] = useState<FilterLeaderboard>('local')
-  // Demo refresh: just reset to mock data
-  function refreshScores() {
-    setEntries([...MOCK_SCORES])
-  }
+  const [leaderboardFilter, setLeaderboardFilter] =
+    useState<FilterLeaderboard>('local')
 
-  // Client-side filtering
-  const filtered = entries.filter((e) => {
-    if (modeFilter !== 'all' && e.game_type !== modeFilter) return false
-    if (langFilter !== 'all' && e.language !== langFilter) return false
-    return true
-  })
+  const loadScores = useCallback(async () => {
+    if (leaderboardFilter === 'local') {
+      setEntries(loadLocalScores())
+      return
+    }
+
+    setLoading(true)
+    try {
+      const scores = await apiGetTopScores()
+      setEntries(scores)
+    } finally {
+      setLoading(false)
+    }
+  }, [leaderboardFilter])
+
+  useEffect(() => {
+    loadScores()
+  }, [loadScores])
+
+  useEffect(() => {
+    const handleLocalUpdate = () => {
+      if (leaderboardFilter === 'local') {
+        setEntries(loadLocalScores())
+      }
+    }
+
+    window.addEventListener('local-scores-updated', handleLocalUpdate)
+    return () =>
+      window.removeEventListener('local-scores-updated', handleLocalUpdate)
+  }, [leaderboardFilter])
+
+  const filtered = entries
+    .filter((e) => {
+      if (modeFilter !== 'all' && e.game_type !== modeFilter) return false
+      if (langFilter !== 'all' && e.language !== langFilter) return false
+      return true
+    })
+    .sort((a, b) => b.wpm - a.wpm)
 
   return (
     <div className="leaderboard">
@@ -115,8 +73,9 @@ export default function Leaderboard() {
         <button
           type="button"
           className="leaderboard-refresh"
-          onClick={refreshScores}
+          onClick={loadScores}
           aria-label="Refresh leaderboard"
+          disabled={loading}
         >
           ↺ Refresh
         </button>
@@ -164,7 +123,6 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {/* Table */}
       <table className="leaderboard-table" aria-label="Top scores">
         <thead>
           <tr>
@@ -176,34 +134,47 @@ export default function Leaderboard() {
           </tr>
         </thead>
         <tbody>
-          {filtered.length === 0 && (
+          {loading && (
+            <tr>
+              <td colSpan={5} className="leaderboard-state">
+                Loading scores…
+              </td>
+            </tr>
+          )}
+
+          {!loading && filtered.length === 0 && (
             <tr>
               <td colSpan={5} className="leaderboard-state">
                 {entries.length === 0
-                  ? 'No scores yet — be the first!'
+                  ? leaderboardFilter === 'local'
+                    ? 'No local scores yet, play a game to get started!'
+                    : 'No global scores yet'
                   : 'No results match these filters'}
               </td>
             </tr>
           )}
 
-          {filtered.map((entry, i) => (
-            <tr key={entry.id}>
-              <td className="col-rank">
-                <span>{i + 1}</span>
-              </td>
-              <td className="lb-username">{entry.username}</td>
-              <td className="col-wpm">{Math.round(entry.wpm)}</td>
-              <td className="col-acc">
-                {entry.score != null ? `${entry.score.toFixed(1)}%` : '—'}
-              </td>
-              <td className="col-date">{formatDate(entry.achieved_at)}</td>
-            </tr>
-          ))}
+          {!loading &&
+            filtered.map((entry, i) => (
+              <tr key={entry.id}>
+                <td className="col-rank">
+                  <span>{i + 1}</span>
+                </td>
+                <td className="lb-username">{entry.username}</td>
+                <td className="col-wpm">{Math.round(entry.wpm)}</td>
+                <td className="col-acc">
+                  {entry.score != null ? `${entry.score.toFixed(1)}%` : '—'}
+                </td>
+                <td className="col-date">{formatDate(entry.achieved_at)}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
 
       <p className="leaderboard-note">
-        Demo mode — static sample data shown
+        {leaderboardFilter === 'local'
+          ? 'Showing scores saved in this browser'
+          : 'Showing global scores from the server'}
       </p>
     </div>
   )
