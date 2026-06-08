@@ -173,6 +173,58 @@
   color: var(--accent);
 }
 
+.game-wpm-chart {
+  width: 100%;
+}
+
+.game-wpm-chart-title {
+  font-family: var(--heading);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-h);
+  margin: 0 0 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.game-wpm-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.game-wpm-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.game-wpm-chart-axis {
+  fill: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-anchor: end;
+}
+
+.game-wpm-chart-axis--x {
+  text-anchor: middle;
+}
+
+.game-wpm-chart-area {
+  fill: var(--accent-bg);
+}
+
+.game-wpm-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.game-wpm-chart-dot {
+  fill: var(--accent);
+}
+
 .game-button {
   font-family: var(--sans);
   font-size: 16px;

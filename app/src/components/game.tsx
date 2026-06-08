@@ -23,6 +23,13 @@ type GameResults = {
   totalChars: number
 }
 
+type WpmSample = {
+  second: number
+  wpm: number
+}
+
+const WPM_SAMPLE_INTERVAL_MS = 1000
+
 type ParsedBuffer = {
   completed: string[]
   current: string
@@ -203,6 +210,107 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
+function computeWpmAtTime(
+  targetWords: string[],
+  typedWords: string[],
+  buffer: string,
+  elapsedSeconds: number,
+): number {
+  if (elapsedSeconds <= 0) return 0
+  const { correctChars } = computeResults(
+    targetWords,
+    typedWords,
+    buffer,
+    elapsedSeconds,
+    true,
+  )
+  return correctChars / 5 / (elapsedSeconds / 60)
+}
+
+function WpmChart({ samples }: { samples: WpmSample[] }) {
+  if (samples.length === 0) return null
+
+  const width = 640
+  const height = 200
+  const pad = { top: 16, right: 16, bottom: 32, left: 44 }
+  const chartW = width - pad.left - pad.right
+  const chartH = height - pad.top - pad.bottom
+
+  const maxSecond = Math.max(samples[samples.length - 1].second, 1)
+  const maxWpm = Math.max(...samples.map((s) => s.wpm), 10)
+
+  const toX = (second: number) => pad.left + (second / maxSecond) * chartW
+  const toY = (wpm: number) => pad.top + chartH - (wpm / maxWpm) * chartH
+
+  const linePath = samples
+    .map((s, i) => `${i === 0 ? 'M' : 'L'} ${toX(s.second).toFixed(1)} ${toY(s.wpm).toFixed(1)}`)
+    .join(' ')
+
+  const areaPath = `${linePath} L ${toX(samples[samples.length - 1].second).toFixed(1)} ${toY(0).toFixed(1)} L ${toX(samples[0].second).toFixed(1)} ${toY(0).toFixed(1)} Z`
+
+  const yTicks = 4
+  const xTicks = Math.min(maxSecond, 6)
+
+  return (
+    <div className="game-wpm-chart">
+      <h3 className="game-wpm-chart-title">WPM over time</h3>
+      <svg
+        className="game-wpm-chart-svg"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="WPM over time chart"
+      >
+        {Array.from({ length: yTicks + 1 }, (_, i) => {
+          const wpm = (maxWpm / yTicks) * i
+          const y = toY(wpm)
+          return (
+            <g key={`y-${i}`}>
+              <line
+                x1={pad.left}
+                y1={y}
+                x2={width - pad.right}
+                y2={y}
+                className="game-wpm-chart-grid"
+              />
+              <text x={pad.left - 8} y={y + 4} className="game-wpm-chart-axis">
+                {Math.round(wpm)}
+              </text>
+            </g>
+          )
+        })}
+
+        {Array.from({ length: xTicks + 1 }, (_, i) => {
+          const second = Math.round((maxSecond / xTicks) * i)
+          const x = toX(second)
+          return (
+            <text
+              key={`x-${i}`}
+              x={x}
+              y={height - 8}
+              className="game-wpm-chart-axis game-wpm-chart-axis--x"
+            >
+              {second}s
+            </text>
+          )
+        })}
+
+        <path d={areaPath} className="game-wpm-chart-area" />
+        <path d={linePath} className="game-wpm-chart-line" />
+
+        {samples.map((s) => (
+          <circle
+            key={s.second}
+            cx={toX(s.second)}
+            cy={toY(s.wpm)}
+            r={3}
+            className="game-wpm-chart-dot"
+          />
+        ))}
+      </svg>
+    </div>
+  )
+}
+
 export default function Game({
   mode = 'time',
   durationSeconds = 60,
@@ -215,6 +323,7 @@ export default function Game({
   const wordsRef = useRef<string[]>([])
   const finishRef = useRef(false)
   const startTimeRef = useRef<number | null>(null)
+  const wpmHistoryRef = useRef<WpmSample[]>([])
 
   const wordPool = WORD_LISTS[language]
 
@@ -230,6 +339,7 @@ export default function Game({
   const [timeLeft, setTimeLeft] = useState(durationSeconds)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [results, setResults] = useState<GameResults | null>(null)
+  const [wpmHistory, setWpmHistory] = useState<WpmSample[]>([])
 
   wordsRef.current = words
 
@@ -242,12 +352,14 @@ export default function Game({
     startTimeRef.current = null
     typedWordsRef.current = []
     bufferRef.current = ''
+    wpmHistoryRef.current = []
     setPhase('idle')
     setTypedWords([])
     setBuffer('')
     setTimeLeft(durationSeconds)
     setElapsedSeconds(0)
     setResults(null)
+    setWpmHistory([])
     setWords(
       pickRandomWords(
         wordPool ?? [],
@@ -279,6 +391,17 @@ export default function Game({
         finalBuffer.length > 0,
       )
       setResults(gameResults)
+
+      const history = [...wpmHistoryRef.current]
+      const finalSample = { second: elapsed, wpm: gameResults.wpm }
+      if (history.length === 0 || history[history.length - 1].second !== elapsed) {
+        history.push(finalSample)
+      } else {
+        history[history.length - 1] = finalSample
+      }
+      setWpmHistory(history)
+      wpmHistoryRef.current = []
+
       void recordScore({
         wpm: gameResults.wpm,
         score: gameResults.accuracy,
@@ -330,6 +453,35 @@ export default function Game({
 
     return () => window.clearInterval(interval)
   }, [phase, mode, durationSeconds, finishGame])
+
+  useEffect(() => {
+    if (phase !== 'playing') return
+
+    const sampleWpm = () => {
+      if (startTimeRef.current === null) return
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      if (elapsed <= 0) return
+
+      const wpm = computeWpmAtTime(
+        wordsRef.current,
+        typedWordsRef.current,
+        bufferRef.current,
+        elapsed,
+      )
+
+      const history = wpmHistoryRef.current
+      const last = history[history.length - 1]
+      if (last?.second === elapsed) {
+        history[history.length - 1] = { second: elapsed, wpm }
+      } else {
+        history.push({ second: elapsed, wpm })
+      }
+    }
+
+    sampleWpm()
+    const interval = window.setInterval(sampleWpm, WPM_SAMPLE_INTERVAL_MS)
+    return () => window.clearInterval(interval)
+  }, [phase])
 
   useEffect(() => {
     if (phase !== 'playing') return
@@ -425,6 +577,7 @@ export default function Game({
               </span>
             </div>
           </div>
+          <WpmChart samples={wpmHistory} />
           <button type="button" className="game-button" onClick={resetGame}>
             Play again
           </button>
