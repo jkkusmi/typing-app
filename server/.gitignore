@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+.DS_Store
+.vscode
+.cursor
+.cursorrules
+venv
+db.sqlite3
+.obsidian
+*.db
+*.sqlite
+__pycache__/
+*.pyc
